@@ -2,8 +2,216 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Terminal, MapPin, Mail, Phone, ExternalLink, GraduationCap, Award,
   Server, Code2, Wrench, Send, Circle, ChevronRight, Globe, Linkedin,
-  Sparkles, BookOpen, Menu, X, Home, Briefcase, User, FolderOpen
+  Sparkles, BookOpen, Menu, X, Home, Briefcase, User, FolderOpen,
+  MessageSquare, Bot, Minimize2
 } from 'lucide-react';
+
+/* ─── LibAI Chat Widget ─────────────────────────────────────────── */
+
+const PROXY_URL = '/api/chat';
+
+function LibAIChat() {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: 'Hi! I\'m the iWS LibAI Assistant — Bongani\'s library AI agent built on Azure AI Foundry for Walter Sisulu University. Ask me anything about WSU library services, research tools, or AI resources!' }
+  ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [previousId, setPreviousId] = useState(null);
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 300);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
+
+  const sendMessage = async () => {
+    const text = input.trim();
+    if (!text || loading) return;
+    setInput('');
+    setMessages(m => [...m, { role: 'user', content: text }]);
+    setLoading(true);
+
+    try {
+      const body = {
+        model: 'gpt-4.1',
+        input: text,
+        ...(previousId ? { previous_response_id: previousId } : {}),
+      };
+
+      const res = await fetch(PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err);
+      }
+
+      const data = await res.json();
+
+      // Extract response text from output array
+      const outputText = data.output
+        ?.filter(o => o.type === 'message' && o.role === 'assistant')
+        ?.flatMap(o => o.content)
+        ?.filter(c => c.type === 'output_text')
+        ?.map(c => c.text)
+        ?.join('') || 'Sorry, I couldn\'t generate a response. Please try again.';
+
+      setPreviousId(data.id || null);
+      setMessages(m => [...m, { role: 'assistant', content: outputText }]);
+    } catch (err) {
+      console.error(err);
+      setMessages(m => [...m, { role: 'assistant', content: '⚠️ Connection error. Please check your Azure endpoint and try again.' }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKey = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
+
+  return (
+    <>
+      {/* Floating button */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          position: 'fixed', bottom: '88px', right: '20px', zIndex: 100,
+          width: '56px', height: '56px', borderRadius: '50%',
+          background: 'linear-gradient(135deg, #2dd4bf, #5eead4)',
+          border: 'none', cursor: 'pointer', boxShadow: '0 4px 20px rgba(94,234,212,.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'transform .2s, box-shadow .2s',
+          animation: 'pfPulseBtn 2.5s ease-in-out infinite',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.transform='scale(1.1)'; e.currentTarget.style.boxShadow='0 6px 28px rgba(94,234,212,.6)'; }}
+        onMouseLeave={e => { e.currentTarget.style.transform='scale(1)';   e.currentTarget.style.boxShadow='0 4px 20px rgba(94,234,212,.45)'; }}
+        title="Chat with iWS LibAI Assistant"
+      >
+        {open ? <X size={22} color="#0a0e14" /> : <Bot size={22} color="#0a0e14" />}
+      </button>
+
+      {/* Chat window */}
+      <div style={{
+        position: 'fixed', bottom: '158px', right: '20px', zIndex: 99,
+        width: 'min(370px, calc(100vw - 32px))',
+        height: 'min(520px, calc(100vh - 200px))',
+        background: '#10151c', border: '1px solid #2dd4bf',
+        borderRadius: '14px', overflow: 'hidden',
+        boxShadow: '0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(94,234,212,.15)',
+        display: 'flex', flexDirection: 'column',
+        opacity: open ? 1 : 0,
+        transform: open ? 'translateY(0) scale(1)' : 'translateY(16px) scale(.96)',
+        visibility: open ? 'visible' : 'hidden',
+        transition: 'opacity .25s ease, transform .25s ease, visibility .25s',
+      }}>
+        {/* Header */}
+        <div style={{ background: 'linear-gradient(135deg, #0d1a14, #0f1f1a)', borderBottom: '1px solid #1f2733', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg,#2dd4bf,#5eead4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Bot size={18} color="#0a0e14" />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#e3e8ef', fontFamily: 'JetBrains Mono, monospace' }}>iWS LibAI Assistant</div>
+            <div style={{ fontSize: '11px', color: '#5eead4', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#5eead4', display: 'inline-block', animation: 'pfPulse 1.8s ease-in-out infinite' }} />
+              Azure AI Foundry · WSU Library
+            </div>
+          </div>
+          <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8694a6', padding: '4px' }}>
+            <Minimize2 size={16} />
+          </button>
+        </div>
+
+        {/* Messages */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {messages.map((msg, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', animation: 'pfFadeIn .3s ease' }}>
+              {msg.role === 'assistant' && (
+                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'linear-gradient(135deg,#2dd4bf,#5eead4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginRight: '7px', marginTop: '2px' }}>
+                  <Bot size={13} color="#0a0e14" />
+                </div>
+              )}
+              <div style={{
+                maxWidth: '82%', padding: '9px 12px', borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                background: msg.role === 'user' ? 'linear-gradient(135deg,#2dd4bf,#5eead4)' : '#161c26',
+                color: msg.role === 'user' ? '#0a0e14' : '#e3e8ef',
+                fontSize: '13px', lineHeight: 1.6,
+                border: msg.role === 'assistant' ? '1px solid #1f2733' : 'none',
+                fontWeight: msg.role === 'user' ? 600 : 400,
+                whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+              }}>
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', animation: 'pfFadeIn .3s ease' }}>
+              <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'linear-gradient(135deg,#2dd4bf,#5eead4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Bot size={13} color="#0a0e14" />
+              </div>
+              <div style={{ background: '#161c26', border: '1px solid #1f2733', borderRadius: '12px 12px 12px 2px', padding: '10px 14px', display: 'flex', gap: '5px', alignItems: 'center' }}>
+                {[0,1,2].map(j => (
+                  <span key={j} style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#5eead4', display: 'inline-block', animation: `pfPulse 1.2s ease-in-out ${j*0.2}s infinite` }} />
+                ))}
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input */}
+        <div style={{ borderTop: '1px solid #1f2733', padding: '10px 12px', display: 'flex', gap: '8px', alignItems: 'flex-end', background: '#0a0e14' }}>
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKey}
+            placeholder="Ask about WSU library services..."
+            rows={1}
+            style={{
+              flex: 1, background: '#10151c', border: '1px solid #1f2733', borderRadius: '8px',
+              padding: '9px 12px', color: '#e3e8ef', fontSize: '13px', outline: 'none',
+              resize: 'none', fontFamily: 'Inter, sans-serif', lineHeight: 1.5,
+              transition: 'border-color .2s', maxHeight: '80px', overflowY: 'auto',
+            }}
+            onFocus={e => e.target.style.borderColor='#5eead4'}
+            onBlur={e => e.target.style.borderColor='#1f2733'}
+          />
+          <button
+            onClick={sendMessage}
+            disabled={loading || !input.trim()}
+            style={{
+              width: '36px', height: '36px', borderRadius: '8px', flexShrink: 0,
+              background: loading || !input.trim() ? '#1f2733' : 'linear-gradient(135deg,#2dd4bf,#5eead4)',
+              border: 'none', cursor: loading || !input.trim() ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'background .2s',
+            }}
+          >
+            <Send size={15} color={loading || !input.trim() ? '#8694a6' : '#0a0e14'} />
+          </button>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes pfPulseBtn {
+          0%, 100% { box-shadow: 0 4px 20px rgba(94,234,212,.45); }
+          50%       { box-shadow: 0 4px 32px rgba(94,234,212,.75); }
+        }
+      `}</style>
+    </>
+  );
+}
 
 /* ─── Data ─────────────────────────────────────────────────────── */
 
@@ -781,6 +989,9 @@ export default function Portfolio() {
           </button>
         ))}
       </nav>
+
+      {/* ── LibAI Chat Widget ── */}
+      <LibAIChat />
 
       <footer style={{ borderTop:'1px solid #1f2733', padding:'18px 24px', position:'relative', zIndex:1 }}>
         <div className="pf-mono pf-muted" style={{ maxWidth:'1024px', margin:'0 auto', fontSize:'12px', display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:'8px' }}>
