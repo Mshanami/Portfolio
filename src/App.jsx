@@ -13,11 +13,11 @@ const PROXY_URL = '/api/chat';
 function LibAIChat() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hi! I\'m the iWS LibAI Assistant — Bongani\'s library AI agent built on Azure AI Foundry for Walter Sisulu University. Ask me anything about WSU library services, research tools, or AI resources!' }
+    { role: 'assistant', content: 'Hi! I\'m Bongani\'s personal AI assistant. Ask me anything about his skills, experience, projects or how to get in touch!' }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [previousId, setPreviousId] = useState(null);
+  const conversationRef = useRef([]); // tracks full history for the API
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -35,14 +35,16 @@ function LibAIChat() {
     const text = input.trim();
     if (!text || loading) return;
     setInput('');
+
+    // Add user message to display and history
     setMessages(m => [...m, { role: 'user', content: text }]);
+    conversationRef.current = [...conversationRef.current, { role: 'user', content: text }];
     setLoading(true);
 
     try {
       const body = {
         model: 'gpt-4.1',
-        input: text,
-        ...(previousId ? { previous_response_id: previousId } : {}),
+        input: conversationRef.current, // send full history
       };
 
       const res = await fetch(PROXY_URL, {
@@ -52,8 +54,8 @@ function LibAIChat() {
       });
 
       if (!res.ok) {
-        const err = await res.text();
-        throw new Error(err);
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.azureError || err.error || `HTTP ${res.status}`);
       }
 
       const data = await res.json();
@@ -66,11 +68,12 @@ function LibAIChat() {
         ?.map(c => c.text)
         ?.join('') || 'Sorry, I couldn\'t generate a response. Please try again.';
 
-      setPreviousId(data.id || null);
+      // Add assistant reply to history
+      conversationRef.current = [...conversationRef.current, { role: 'assistant', content: outputText }];
       setMessages(m => [...m, { role: 'assistant', content: outputText }]);
     } catch (err) {
       console.error(err);
-      setMessages(m => [...m, { role: 'assistant', content: '⚠️ Connection error. Please check your Azure endpoint and try again.' }]);
+      setMessages(m => [...m, { role: 'assistant', content: `⚠️ Error: ${err.message}` }]);
     } finally {
       setLoading(false);
     }
@@ -121,10 +124,10 @@ function LibAIChat() {
             <Bot size={18} color="#0a0e14" />
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#e3e8ef', fontFamily: 'JetBrains Mono, monospace' }}>iWS LibAI Assistant</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#e3e8ef', fontFamily: 'JetBrains Mono, monospace' }}>Bongani's AI Assistant</div>
             <div style={{ fontSize: '11px', color: '#5eead4', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#5eead4', display: 'inline-block', animation: 'pfPulse 1.8s ease-in-out infinite' }} />
-              Azure AI Foundry · WSU Library
+              Powered by Azure AI Foundry
             </div>
           </div>
           <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8694a6', padding: '4px' }}>
@@ -176,7 +179,7 @@ function LibAIChat() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKey}
-            placeholder="Ask about WSU library services..."
+            placeholder="Ask about Bongani's skills or experience..."
             rows={1}
             style={{
               flex: 1, background: '#10151c', border: '1px solid #1f2733', borderRadius: '8px',

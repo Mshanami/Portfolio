@@ -9,8 +9,6 @@ export default async function handler(req, res) {
   try {
     const { input } = req.body;
 
-    // Send only the latest user message as a plain string
-    // Find the last user message in the array
     let userMessage = '';
     if (Array.isArray(input)) {
       const lastUser = [...input].reverse().find(m => m.role === 'user');
@@ -21,10 +19,8 @@ export default async function handler(req, res) {
 
     const body = { model: 'gpt-4.1', input: userMessage };
 
-    console.log('Azure request body:', JSON.stringify(body));
-
     const azureRes = await fetch(
-      'https://bmngomezulu-7756-resource.services.ai.azure.com/api/projects/bmngomezulu-7756/applications/LibraryAssistant/protocols/openai/responses?api-version=2025-11-15-preview',
+      'https://bmngomezulu-7756-resource.services.ai.azure.com/api/projects/bmngomezulu-7756/agents/Bongani/endpoint/protocols/openai/responses',
       {
         method: 'POST',
         headers: {
@@ -36,16 +32,11 @@ export default async function handler(req, res) {
     );
 
     const text = await azureRes.text();
-    console.log('Azure response status:', azureRes.status);
-    console.log('Azure response body:', text.slice(0, 500));
+    console.log('Azure status:', azureRes.status, text.slice(0, 300));
 
-    if (!azureRes.ok) {
-      return res.status(azureRes.status).json({ azureError: text });
-    }
+    if (!azureRes.ok) return res.status(azureRes.status).json({ azureError: text });
 
-    const data = JSON.parse(text);
-    return res.status(200).json(data);
-
+    return res.status(200).json(JSON.parse(text));
   } catch (err) {
     console.error('Proxy error:', err.message);
     return res.status(500).json({ error: err.message });
