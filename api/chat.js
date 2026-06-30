@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     const body = { model: 'gpt-4.1', input: userMessage };
 
     const azureRes = await fetch(
-      'https://bmngomezulu-7756-resource.services.ai.azure.com/api/projects/bmngomezulu-7756/agents/Bongani/endpoint/protocols/openai/responses',
+      'https://bmngomezulu-7756-resource.services.ai.azure.com/api/projects/bmngomezulu-7756/agents/Bongani/endpoint/protocols/openai/responses?api-version=2025-11-15-preview',
       {
         method: 'POST',
         headers: {
